@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Admin - Petition System</title>
+<link rel="stylesheet" href="style.css"></head>
+<body>
+<header><h1>Admin: Users &amp; Roles</h1><button class="secondary" onclick="logout()">Log out</button></header>
+<div class="card">
+  <table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th></tr></thead>
+  <tbody id="rows"></tbody></table>
+  <p id="msg"></p>
+</div>
+<script src="common.js"></script>
+<script>
+guard("admin");
+async function load() {
+  const users = await api("/admin/users");
+  rows.innerHTML = users.map(u => `<tr>
+    <td>${esc(u.fullName)}</td><td>${esc(u.email)}</td>
+    <td><select onchange="setRole('${u._id}', this.value)">
+      ${["student", "reviewer", "admin"].map(r => `<option ${r === u.role ? "selected" : ""}>${r}</option>`).join("")}
+    </select></td><td>${fmt(u.createdAt)}</td></tr>`).join("");
+}
+async function setRole(id, role) {
+  try { await api(`/admin/users/${id}/role`, "PATCH", { role }); msg.className = "ok"; msg.textContent = "Role updated."; }
+  catch (e) { msg.className = "msg"; msg.textContent = e.message; }
+}
+load();
+</script></body></html>

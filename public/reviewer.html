@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Reviewer - Petition System</title>
+<link rel="stylesheet" href="style.css"></head>
+<body>
+<header><h1>Reviewer Queue</h1><button class="secondary" onclick="logout()">Log out</button></header>
+
+<div class="card">
+  <select id="filter" onchange="loadQueue()" style="width:220px">
+    <option value="">All statuses</option>
+    <option>Pending</option><option>Under Review</option><option>Returned</option>
+    <option>Approved</option><option>Rejected</option>
+  </select>
+  <table><thead><tr><th>Subject</th><th>Requested by</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+  <tbody id="rows"></tbody></table>
+</div>
+
+<div class="card" id="panel" hidden>
+  <h2 id="title"></h2>
+  <p id="reason"></p>
+  <p><b>Participants:</b> <span id="people"></span></p>
+  <h3>History</h3><ul id="history"></ul>
+  <h3>Record a decision</h3>
+  <select id="decision">
+    <option>Under Review</option><option>Returned</option><option>Approved</option><option>Rejected</option>
+  </select>
+  <textarea id="comments" rows="3" placeholder="Comments"></textarea>
+  <button onclick="decide()">Submit decision</button>
+  <p id="msg"></p>
+</div>
+
+<script src="common.js"></script>
+<script>
+guard("reviewer");
+let currentId = null;
+
+async function loadQueue() {
+  const q = filter.value ? "?status=" + encodeURIComponent(filter.value) : "";
+  const list = await api("/petitions" + q);
+  rows.innerHTML = list.map(p => `<tr>
+    <td>${esc(p.subjectCode)} - ${esc(p.subjectName)}</td>
+    <td>${esc(p.requestedBy?.fullName)}</td>
+    <td>${badge(p.status)}</td><td>${fmt(p.createdAt)}</td>
+    <td><button onclick="openPetition('${p._id}')">Open</button></td></tr>`).join("")
+    || "<tr><td colspan='5'>Nothing here.</td></tr>";
+}
+
+async function openPetition(id) {
+  currentId = id;
+  const d = await api("/petitions/" + id);
+  panel.hidden = false; msg.textContent = "";
+  title.textContent = `${d.petition.subjectCode} - ${d.petition.subjectName} (${d.petition.semester}, ${d.petition.academicYear})`;
+  reason.textContent = "Reason: " + d.petition.reason;
+  people.textContent = d.students.map(s => s.studentName).join(", ") || "none listed";
+  history.innerHTML = d.approvals.map(a => `<li>${fmt(a.decidedAt)} - ${badge(a.decision)} ${esc(a.comments || "")}</li>`).join("")
+    || "<li>No decisions yet.</li>";
+  panel.scrollIntoView();
+}
+
+async function decide() {
+  try {
+    await api(`/petitions/${currentId}/decision`, "POST", { decision: decision.value, comments: comments.value });
+    msg.className = "ok"; msg.textContent = "Decision saved. Student notified.";
+    comments.value = ""; loadQueue(); openPetition(currentId);
+  } catch (e) { msg.className = "msg"; msg.textContent = e.message; }
+}
+loadQueue();
+</script></body></html>

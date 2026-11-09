@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Student - Petition System</title>
+<link rel="stylesheet" href="style.css"></head>
+<body>
+<header><h1>Student Dashboard</h1><button class="secondary" onclick="logout()">Log out</button></header>
+
+<form id="petForm">
+  <h2>Submit a petition</h2>
+  <input id="subjectCode" placeholder="Subject code (e.g. IT315)" required>
+  <input id="subjectName" placeholder="Subject name" required>
+  <input id="semester" placeholder="Semester (e.g. 1st)" required>
+  <input id="academicYear" placeholder="Academic year (e.g. 2026-2027)" required>
+  <textarea id="reason" rows="3" placeholder="Reason for the petition" required></textarea>
+  <textarea id="students" rows="4" placeholder="Participating students, one per line:&#10;studentId, name, program, yearLevel"></textarea>
+  <button type="submit">Submit petition</button>
+  <p id="formMsg"></p>
+</form>
+
+<div class="card"><h2>My petitions</h2>
+  <table><thead><tr><th>Subject</th><th>Term</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+  <tbody id="rows"></tbody></table>
+  <div id="detail"></div>
+</div>
+
+<div class="card"><h2>Notifications</h2><div id="notes"></div></div>
+
+<script src="common.js"></script>
+<script>
+guard("student");
+
+async function loadPetitions() {
+  const list = await api("/petitions/mine");
+  rows.innerHTML = list.map(p => `<tr>
+    <td>${esc(p.subjectCode)} - ${esc(p.subjectName)}</td>
+    <td>${esc(p.semester)} ${esc(p.academicYear)}</td>
+    <td>${badge(p.status)}</td><td>${fmt(p.createdAt)}</td>
+    <td><button class="secondary" onclick="showDetail('${p._id}')">History</button></td></tr>`).join("")
+    || "<tr><td colspan='5'>No petitions yet.</td></tr>";
+}
+
+async function showDetail(id) {
+  const d = await api("/petitions/" + id);
+  detail.innerHTML = `<h3>${esc(d.petition.subjectCode)} history</h3>
+    <p><b>Participants:</b> ${d.students.map(s => esc(s.studentName)).join(", ") || "none"}</p>
+    <ul>${d.approvals.map(a => `<li>${fmt(a.decidedAt)} - ${badge(a.decision)} ${esc(a.comments || "")}</li>`).join("")
+      || "<li>No decisions yet.</li>"}</ul>`;
+}
+
+async function loadNotes() {
+  const list = await api("/notifications");
+  notes.innerHTML = list.map(n => `<p class="${n.isRead ? "" : "unread"}">${esc(n.message)}
+    <small>(${fmt(n.createdAt)})</small>
+    ${n.isRead ? "" : `<button class="secondary" onclick="markRead('${n._id}')">Mark read</button>`}</p>`).join("")
+    || "No notifications.";
+}
+async function markRead(id) { await api(`/notifications/${id}/read`, "PATCH"); loadNotes(); }
+
+petForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const studentsList = students.value.split("\n").map(l => l.trim()).filter(Boolean).map(l => {
+    const [studentId, studentName, program, yearLevel] = l.split(",").map(x => x.trim());
+    return { studentId, studentName, program, yearLevel: Number(yearLevel) || undefined };
+  });
+  try {
+    await api("/petitions", "POST", {
+      subjectCode: subjectCode.value, subjectName: subjectName.value, semester: semester.value,
+      academicYear: academicYear.value, reason: reason.value, students: studentsList
+    });
+    formMsg.className = "ok"; formMsg.textContent = "Petition submitted.";
+    petForm.reset(); loadPetitions();
+  } catch (err) { formMsg.className = "msg"; formMsg.textContent = err.message; }
+});
+
+loadPetitions(); loadNotes();
+</script></body></html>

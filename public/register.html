@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Register - Petition System</title>
+<link rel="stylesheet" href="style.css"></head>
+<body style="max-width:380px">
+<h1>Create account</h1>
+<form id="regForm">
+  <input id="fullName" placeholder="Full name" required>
+  <input id="email" type="email" placeholder="Email" required>
+  <input id="password" type="password" placeholder="Password (8+ characters)" minlength="8" required>
+  <button type="submit">Register</button>
+  <p id="msg"></p>
+  <p><a href="login.html">Back to login</a></p>
+</form>
+<script>
+regForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const res = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fullName: fullName.value, email: email.value, password: password.value })
+  });
+  const data = await res.json();
+  msg.className = res.ok ? "ok" : "msg";
+  msg.textContent = data.message;
+  if (res.ok) setTimeout(() => location.href = "login.html", 1200);
+});
+</script></body></html>
