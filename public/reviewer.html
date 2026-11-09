@@ -18,7 +18,7 @@
   <h2 id="title"></h2>
   <p id="reason"></p>
   <p><b>Participants:</b> <span id="people"></span></p>
-  <h3>History</h3><ul id="history"></ul>
+  <h3>History</h3><ul id="historyList"></ul>
   <h3>Record a decision</h3>
   <select id="decision">
     <option>Under Review</option><option>Returned</option><option>Approved</option><option>Rejected</option>
@@ -51,7 +51,7 @@ async function openPetition(id) {
   title.textContent = `${d.petition.subjectCode} - ${d.petition.subjectName} (${d.petition.semester}, ${d.petition.academicYear})`;
   reason.textContent = "Reason: " + d.petition.reason;
   people.textContent = d.students.map(s => s.studentName).join(", ") || "none listed";
-  history.innerHTML = d.approvals.map(a => `<li>${fmt(a.decidedAt)} - ${badge(a.decision)} ${esc(a.comments || "")}</li>`).join("")
+  historyList.innerHTML = d.approvals.map(a => `<li>${fmt(a.decidedAt)} - ${badge(a.decision)} ${esc(a.comments || "")}</li>`).join("")
     || "<li>No decisions yet.</li>";
   panel.scrollIntoView();
 }
@@ -59,8 +59,9 @@ async function openPetition(id) {
 async function decide() {
   try {
     await api(`/petitions/${currentId}/decision`, "POST", { decision: decision.value, comments: comments.value });
+    comments.value = ""; loadQueue();
+    await openPetition(currentId);   // reloads the panel (this clears the message box)
     msg.className = "ok"; msg.textContent = "Decision saved. Student notified.";
-    comments.value = ""; loadQueue(); openPetition(currentId);
   } catch (e) { msg.className = "msg"; msg.textContent = e.message; }
 }
 loadQueue();

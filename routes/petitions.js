@@ -16,13 +16,20 @@ const fail = (res, e) => {
 // Student submits a petition
 router.post("/", requireRole("student"), async (req, res) => {
   try {
-    const { subjectCode, subjectName, semester, academicYear, reason, students = [] } = req.body;
+    // Trim every text field so blank/space-only values count as empty
+    const clean = v => (typeof v === "string" ? v.trim() : "");
+    const subjectCode = clean(req.body.subjectCode);
+    const subjectName = clean(req.body.subjectName);
+    const semester = clean(req.body.semester);
+    const academicYear = clean(req.body.academicYear);
+    const reason = clean(req.body.reason);
+    const students = Array.isArray(req.body.students) ? req.body.students : [];
     if (!subjectCode || !subjectName || !semester || !academicYear || !reason)
       return res.status(400).json({ message: "Fill all required fields." });
     const petition = await Petition.create({
       subjectCode, subjectName, semester, academicYear, reason, requestedBy: req.user.id
     });
-    const valid = students.filter(s => s && s.studentName);
+    const valid = students.filter(s => s && clean(s.studentName));
     if (valid.length)
       await PetitionStudent.insertMany(valid.map(s => ({ ...s, petitionId: petition._id })));
     res.status(201).json(petition);
@@ -39,7 +46,8 @@ router.get("/mine", requireRole("student"), async (req, res) => {
 // Reviewer/admin sees the queue (optional ?status=Pending)
 router.get("/", requireRole("reviewer", "admin"), async (req, res) => {
   try {
-    const filter = req.query.status ? { status: req.query.status } : {};
+    const allowed = ["Pending", "Under Review", "Returned", "Approved", "Rejected"];
+    const filter = allowed.includes(req.query.status) ? { status: req.query.status } : {};
     res.json(await Petition.find(filter).populate("requestedBy", "fullName email").sort({ createdAt: -1 }));
   } catch (e) { fail(res, e); }
 });
@@ -65,6 +73,8 @@ router.post("/:id/decision", requireRole("reviewer"), async (req, res) => {
       return res.status(400).json({ message: "Invalid decision." });
     const petition = await Petition.findById(req.params.id);
     if (!petition) return res.status(404).json({ message: "Petition not found." });
+    if (["Approved", "Rejected"].includes(petition.status))
+      return res.status(409).json({ message: `This petition is already ${petition.status}.` });
 
     await Approval.create({ petitionId: petition._id, reviewerId: req.user.id, decision, comments });
     petition.status = decision;

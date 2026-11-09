@@ -1,5 +1,7 @@
 // Run once: node scripts/seedDemo.js
 // Creates (or resets) the demo accounts used for the presentation.
+// Uncomment if you get "querySrv ECONNREFUSED" when connecting to MongoDB Atlas
+// require("dns").setServers(["8.8.8.8", "1.1.1.1"]);
 require("dotenv").config();
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
